@@ -216,7 +216,7 @@ import lmdb
 
 class KeepBlockCacheWithLMDB(KeepBlockCache):
     # TODO : set a different cache_max when initializing this class
-    lmdb_handler = lmdb.open('keep_caching_db')
+    lmdb_handler = lmdb.open('keep_caching_db', writemap=True, map_size=10 * 1024 * 1024 * 1024)
 
     class CacheSlot(object):
         __slots__ = ("locator", "ready", "content", "_lmdb_content_key")
