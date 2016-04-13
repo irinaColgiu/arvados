@@ -224,7 +224,6 @@ class KeepBlockCacheWithLMDB(KeepBlockCache):
         def __init__(self, locator):
             self.locator = locator
             self.ready = threading.Event()
-            #self._content = None
             self._lmdb_content_key = str(locator)
 
         @property
@@ -236,7 +235,7 @@ class KeepBlockCacheWithLMDB(KeepBlockCache):
             return self.set(value)
 
         def get(self):
-            #self.ready.wait()
+            self.ready.wait()
             with KeepBlockCacheWithLMDB.lmdb_handler.begin() as txn:
                 content = txn.get(self._lmdb_content_key.encode('ascii'))
             return content
@@ -244,7 +243,7 @@ class KeepBlockCacheWithLMDB(KeepBlockCache):
         def set(self, value):
             with KeepBlockCacheWithLMDB.lmdb_handler.begin(write=True) as txn:
                 txn.put(self._lmdb_content_key.encode('ascii'), value.encode('ascii'))
-            #self.ready.set()
+            self.ready.set()
 
         def size(self):
             if self.content is None:
