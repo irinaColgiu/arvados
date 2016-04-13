@@ -255,15 +255,16 @@ class KeepBlockCacheWithLMDB(KeepBlockCache):
         with self._cache_lock:
             with self.lmdb_handler.begin(write=True) as txn:
                 self._cache = [c for c in self._cache if not (c.ready.is_set() and c.content is None)]
-                sm = sum([slot.size() for slot in self._cache])
-                if len(self._cache) > 0 and sm > self.cache_max:
-                    for i in xrange(len(self._cache)-1, -1, -1):
-                        if self._cache[i].ready.is_set():
-                            txn.delete(self._cache[i].locator)
-                            del self._cache[i]
-                            sm = sum([slot.size() for slot in self._cache])
-                            if sm < self.cache_max or len(self._cache) <= 0:
-                                break
+                delete_candidates = (slot for slot in self._cache if slot.ready.is_set())
+                total_size = sum([slot.size() for slot in self._cache])
+                if len(self._cache) > 0 and total_size > self.cache_max:
+                    for slot in delete_candidates:
+                        size_slot = slot.size()
+                        txn.delete(slot.locator)
+                        self._cache.remove(slot)
+                        total_size = total_size - size_slot
+                        if total_size < self.cache_max or len(self._cache) <= 0:
+                            break
 
 
 
