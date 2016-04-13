@@ -212,6 +212,61 @@ class KeepBlockCache(object):
                 self._cache.insert(0, n)
                 return n, True
 
+import lmdb
+
+class KeepBlockCacheWithLMDB(KeepBlockCache):
+    # TODO : set a different cache_max when initializing this class
+    lmdb_handler = lmdb.open('keep_caching_db')
+
+    class CacheSlot(object):
+        __slots__ = ("locator", "ready", "content", "_lmdb_content_key")
+
+        def __init__(self, locator):
+            self.locator = locator
+            self.ready = threading.Event()
+            #self._content = None
+            self._lmdb_content_key = str(locator)
+
+        @property
+        def content(self):
+            return self.get()
+
+        @content.setter
+        def content(self, value):
+            return self.set(value)
+
+        def get(self):
+            #self.ready.wait()
+            with KeepBlockCacheWithLMDB.lmdb_handler.begin() as txn:
+                content = txn.get(self._lmdb_content_key.encode('ascii'))
+            return content
+
+        def set(self, value):
+            with KeepBlockCacheWithLMDB.lmdb_handler.begin(write=True) as txn:
+                txn.put(self._lmdb_content_key.encode('ascii'), value.encode('ascii'))
+            #self.ready.set()
+
+        def size(self):
+            if self.content is None:
+                return 0
+            else:
+                return len(self.content)
+
+    def cap_cache(self):
+        with self._cache_lock:
+            with self.lmdb_handler.begin(write=True) as txn:
+                self._cache = [c for c in self._cache if not (c.ready.is_set() and c.content is None)]
+                sm = sum([slot.size() for slot in self._cache])
+                if len(self._cache) > 0 and sm > self.cache_max:
+                    for i in xrange(len(self._cache)-1, -1, -1):
+                        if self._cache[i].ready.is_set():
+                            txn.delete(self._cache[i].locator)
+                            del self._cache[i]
+                            sm = sum([slot.size() for slot in self._cache])
+                            if sm < self.cache_max or len(self._cache) <= 0:
+                                break
+
+
 
 class Counter(object):
     def __init__(self, v=0):
