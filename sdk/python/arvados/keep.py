@@ -236,13 +236,15 @@ class KeepBlockCacheWithLMDB(KeepBlockCache):
 
         def get(self):
             self.ready.wait()
-            with KeepBlockCacheWithLMDB.lmdb_handler.begin() as txn:
-                content = txn.get(self._lmdb_content_key.encode('ascii'))
+            with KeepBlockCacheWithLMDB.lmdb_handler.begin(buffer=True) as txn:
+                #content = txn.get(self._lmdb_content_key.encode('ascii'))
+                content = txn.get(self._lmdb_content_key)
             return content
 
         def set(self, value):
-            with KeepBlockCacheWithLMDB.lmdb_handler.begin(write=True) as txn:
-                txn.put(self._lmdb_content_key.encode('ascii'), value.encode('ascii'))
+            with KeepBlockCacheWithLMDB.lmdb_handler.begin(write=True, buffer=True) as txn:
+                #txn.put(self._lmdb_content_key.encode('ascii'), value.encode('ascii'))
+                txn.put(self._lmdb_content_key, value)
             self.ready.set()
 
         def size(self):
